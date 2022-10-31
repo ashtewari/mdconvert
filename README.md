@@ -1,5 +1,17 @@
 # mdconvert
 
-Convert a folder (including sub-folders) of markdown files to single pdf file
+Converts markdown files in a folder to a single pdf file. 
 
-Usage : mdconvert.exe "c:\temp\folder-to-convert"
+# Usage 
+* Convert markdown files in a folder (recursively) to pdf
+ 
+> cmd> mdconvert.exe "c:\temp\folder-to-convert"
+
+* Convert a markdown file and only linked markdown files (recursively) to pdf
+  
+> cmd> mdconvert.exe "c:\temp\root-folder" "file-in-root-folder.md"
+
+# Dependencies
+Uses pandoc and wkhtmltopdf, install these tools before executing mdconvert.exe
+  * Install pandoc - https://pandoc.org/installing.html
+  * Install wkhtmltopdf - https://wkhtmltopdf.org/downloads.html

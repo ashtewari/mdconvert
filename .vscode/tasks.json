@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/crawler.csproj",
+                "${workspaceFolder}/mdconvert.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/crawler.csproj",
+                "${workspaceFolder}/mdconvert.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/crawler.csproj"
+                "${workspaceFolder}/mdconvert.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

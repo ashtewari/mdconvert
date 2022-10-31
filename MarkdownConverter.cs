@@ -6,6 +6,7 @@ internal class MarkdownConverter
 {
     private string parentFilePath;
     private IList<string> links = new List<string>();
+    private IList<string> tmpPdfFiles = new List<string>();
 
     public MarkdownConverter(string rootFolder)
     {
@@ -49,9 +50,9 @@ internal class MarkdownConverter
             startInfo.RedirectStandardOutput = false;
             Process.Start(startInfo).WaitForExit(); 
             
-            if(!links.Contains(outFileFullName))
+            if(!tmpPdfFiles.Contains(outFileFullName))
             {
-                links.Add(outFileFullName);            
+                tmpPdfFiles.Add(outFileFullName);            
             }
         }
 
@@ -60,35 +61,83 @@ internal class MarkdownConverter
             await ProcessFolder(dirInfo.FullName);
         }
 
-        foreach (var link in links)
-        {
-            Console.WriteLine($"LINK :: {link}");
-        } 
-
         if(folder == parentFilePath)
         {
             var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
-            PdfTools.MergeFiles(links, mergedFile);
+            PdfTools.MergeFiles(tmpPdfFiles, mergedFile);
 
-            foreach (var link in links)
-            {
-                var folderToBeDeleted = Path.GetDirectoryName(link);
-                if(folderToBeDeleted != parentFilePath) {
-                    Console.WriteLine($"Deleting :: {folderToBeDeleted}");
-                    var dirInfo = new DirectoryInfo(folderToBeDeleted);
-                    if(dirInfo.Exists)
-                    {
-                        dirInfo.Delete(true);
-                    }
-                }
-            }            
+            CleanupTempFiles(tmpPdfFiles); 
+
+            Console.WriteLine($"PDF created : {mergedFile}");           
         }       
     }
 
+    private void ConvertFilesToPdf(IList<string> files)
+    {      
+        var tmpFolder = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tmpFolder);
+        IList<string> tmpFiles = new List<string>();
+        foreach (var file in files)
+        {
+            Console.WriteLine($"{file}");
+            
+            // Export files to PDF
+            ProcessStartInfo startInfo = new ProcessStartInfo();  
+            var outFile = string.Format("{0}.{1}", Path.GetFileNameWithoutExtension(file), "pdf");  
+            var outFileFullName = Path.Combine(tmpFolder, outFile);  
+            startInfo.FileName = @"pandoc";
+            startInfo.Arguments = $"{file} -f markdown -t pdf --pdf-engine=wkhtmltopdf -o {outFile}";
+            startInfo.WorkingDirectory = tmpFolder;
+            startInfo.RedirectStandardOutput = false;
+            Process.Start(startInfo).WaitForExit(); 
+            
+            if(!tmpFiles.Contains(outFileFullName))
+            {
+                tmpFiles.Add(outFileFullName);            
+            }
+        }        
+
+        var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
+        PdfTools.MergeFiles(tmpFiles, mergedFile);
+
+        CleanupTempFiles(tmpFiles);
+
+        Console.WriteLine($"PDF created : {mergedFile}"); 
+    }
+
+    private void CleanupTempFiles(IList<string> files)
+    {
+            foreach (var tf in files)
+            {
+                Console.WriteLine($"Deleting :: {tf}");
+                File.Delete(tf);
+            } 
+
+            foreach (var tf in files)
+            {
+                var folderToBeDeleted = Path.GetDirectoryName(tf);
+                if(folderToBeDeleted != parentFilePath) {
+                    var dirInfo = new DirectoryInfo(folderToBeDeleted);
+                    if(dirInfo.Exists)
+                    {
+                        dirInfo.Delete();
+                    }
+                }
+            }                   
+    }  
+
     internal async Task ProcessFile(string markdownFilePath)
     {
-        if(!File.Exists(markdownFilePath)) return;            
+        links.Clear();
+        var files = await this.GetLinks(markdownFilePath);           
+        this.ConvertFilesToPdf(files);
+    } 
 
+    private async Task<IList<string>> GetLinks(string markdownFilePath)
+    {
+        if(!File.Exists(markdownFilePath)) return new List<string>();            
+
+        links.Add(markdownFilePath);
         MarkdownDocument document = new MarkdownDocument();
         document.Parse(await File.ReadAllTextAsync(markdownFilePath));
         foreach (var element in document.Blocks)
@@ -96,11 +145,7 @@ internal class MarkdownConverter
             await FindLinks(element);
         }
 
-        foreach (var link in links)
-        {
-            Console.WriteLine($"LINK :: {link}");
-        }
-
+        return links;
     }
 
     private async Task FindLinks(dynamic element)
@@ -114,7 +159,7 @@ internal class MarkdownConverter
             {
                 links.Add(fi.FullName);
             }
-            await new MarkdownConverter(parentFilePath).ProcessFile(fi.FullName);            
+            await new MarkdownConverter(parentFilePath).GetLinks(fi.FullName);            
         } 
         if(HasProperty(element, "Cells"))
         {

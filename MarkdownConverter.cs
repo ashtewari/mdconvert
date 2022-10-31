@@ -27,18 +27,12 @@ internal class MarkdownConverter
         folderCounter++;
         var tmpPath = Path.GetTempPath();
         var sessionId = System.Guid.NewGuid().ToString();
-        var sessionFolder = Path.Combine(tmpPath, sessionId);    
-        if(folder == parentFilePath)
-        {
-            sessionId = System.Guid.NewGuid().ToString();
-            sessionFolder = Path.Combine(tmpPath, sessionId);
-        }       
-        
-        var tmpFolder = Path.Combine(sessionFolder, folderCounter.ToString());
+        var tmpFolder = Path.Combine(tmpPath, sessionId);    
         Directory.CreateDirectory(tmpFolder);
+        
         foreach (var file in folderInfo.GetFiles("*.md", SearchOption.TopDirectoryOnly))
         {
-            Console.WriteLine($"{file.DirectoryName}, {file.Name}");
+            Console.WriteLine($"Converting {file.DirectoryName}, {file.Name}");
             
             // Export files to PDF
             ProcessStartInfo startInfo = new ProcessStartInfo();  
@@ -47,7 +41,8 @@ internal class MarkdownConverter
             startInfo.FileName = @"pandoc";
             startInfo.Arguments = $"{file.FullName} -f markdown -t pdf --pdf-engine=wkhtmltopdf -o {outFile}";
             startInfo.WorkingDirectory = tmpFolder;
-            startInfo.RedirectStandardOutput = false;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
             Process.Start(startInfo).WaitForExit(); 
             
             if(!tmpPdfFiles.Contains(outFileFullName))
@@ -63,6 +58,8 @@ internal class MarkdownConverter
 
         if(folder == parentFilePath)
         {
+            Console.WriteLine($"Merging files .."); 
+
             var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
             PdfTools.MergeFiles(tmpPdfFiles, mergedFile);
 
@@ -79,7 +76,7 @@ internal class MarkdownConverter
         IList<string> tmpFiles = new List<string>();
         foreach (var file in files)
         {
-            Console.WriteLine($"{file}");
+            Console.WriteLine($"Converting {file}");
             
             // Export files to PDF
             ProcessStartInfo startInfo = new ProcessStartInfo();  
@@ -88,7 +85,8 @@ internal class MarkdownConverter
             startInfo.FileName = @"pandoc";
             startInfo.Arguments = $"{file} -f markdown -t pdf --pdf-engine=wkhtmltopdf -o {outFile}";
             startInfo.WorkingDirectory = tmpFolder;
-            startInfo.RedirectStandardOutput = false;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
             Process.Start(startInfo).WaitForExit(); 
             
             if(!tmpFiles.Contains(outFileFullName))
@@ -97,6 +95,7 @@ internal class MarkdownConverter
             }
         }        
 
+        Console.WriteLine($"Merging files .."); 
         var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
         PdfTools.MergeFiles(tmpFiles, mergedFile);
 
@@ -107,23 +106,24 @@ internal class MarkdownConverter
 
     private void CleanupTempFiles(IList<string> files)
     {
-            foreach (var tf in files)
-            {
-                Console.WriteLine($"Deleting :: {tf}");
-                File.Delete(tf);
-            } 
+        Console.WriteLine($"Deleting temporary files ..");
+        foreach (var tf in files)
+        {
+            Debug.WriteLine($"Deleting :: {tf}");
+            File.Delete(tf);
+        } 
 
-            foreach (var tf in files)
-            {
-                var folderToBeDeleted = Path.GetDirectoryName(tf);
-                if(folderToBeDeleted != parentFilePath) {
-                    var dirInfo = new DirectoryInfo(folderToBeDeleted);
-                    if(dirInfo.Exists)
-                    {
-                        dirInfo.Delete();
-                    }
+        foreach (var tf in files)
+        {
+            var folderToBeDeleted = Path.GetDirectoryName(tf);
+            if(folderToBeDeleted != parentFilePath) {
+                var dirInfo = new DirectoryInfo(folderToBeDeleted);
+                if(dirInfo.Exists)
+                {
+                    dirInfo.Delete();
                 }
-            }                   
+            }
+        }                   
     }  
 
     internal async Task ProcessFile(string markdownFilePath)
@@ -192,7 +192,7 @@ internal class MarkdownConverter
         }
         var absFilePath = System.IO.Path.Combine(parentFilePath, stringPath);
         var fi = new FileInfo(absFilePath);
-        Console.WriteLine($">>>>>> {fi.FullName}");
+        Debug.WriteLine($"Checking file > {fi.FullName}");
         return fi;
     }    
 

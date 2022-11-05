@@ -9,7 +9,7 @@ Converts markdown files in a folder to a single pdf file.
 
 * Convert a markdown file and only linked markdown files (recursively) to pdf
   
-> cmd> mdconvert.exe "c:\temp\root-folder" "file-in-root-folder.md"
+> cmd> mdconvert.exe "c:\temp\root-folder\file-in-root-folder.md"
 
 # Dependencies
 Uses pandoc and wkhtmltopdf, install these tools before executing mdconvert.exe

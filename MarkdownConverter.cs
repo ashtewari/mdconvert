@@ -4,15 +4,15 @@ using Microsoft.Toolkit.Parsers.Markdown;
 
 internal class MarkdownConverter 
 {
-    private string parentFilePath;
+    private string rootFolder;
     private IList<string> links = new List<string>();
     private IList<string> tmpPdfFiles = new List<string>();
 
-    public MarkdownConverter(string rootFolder)
+    public MarkdownConverter(string _rootFolder)
     {
-        if(!string.IsNullOrWhiteSpace(rootFolder))
+        if(!string.IsNullOrWhiteSpace(_rootFolder))
         {
-            parentFilePath = rootFolder;
+            rootFolder = _rootFolder;
         }
     }
 
@@ -20,7 +20,7 @@ internal class MarkdownConverter
 
     internal async Task ProcessFolder(string folderToProcess = default(string))
     {
-        var folder = string.IsNullOrWhiteSpace(folderToProcess) ? parentFilePath : folderToProcess;
+        var folder = string.IsNullOrWhiteSpace(folderToProcess) ? rootFolder : folderToProcess;
         var folderInfo = new DirectoryInfo(folder);
         if(!folderInfo.Exists) return;
         
@@ -39,7 +39,7 @@ internal class MarkdownConverter
             var outFile = string.Format("{0}.{1}", Path.GetFileNameWithoutExtension(file.FullName), "pdf");  
             var outFileFullName = Path.Combine(tmpFolder, outFile);  
             startInfo.FileName = @"pandoc";
-            startInfo.Arguments = $"{file.FullName} -f markdown -t pdf --pdf-engine=wkhtmltopdf -o {outFile}";
+            startInfo.Arguments = $"{file.FullName} -f markdown -t pdf --pdf-engine=wkhtmltopdf --resource-path {file.DirectoryName} --extract-media {tmpFolder} -o {outFile}";
             startInfo.WorkingDirectory = tmpFolder;
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
@@ -56,11 +56,11 @@ internal class MarkdownConverter
             await ProcessFolder(dirInfo.FullName);
         }
 
-        if(folder == parentFilePath)
+        if(folder == rootFolder)
         {
             Console.WriteLine($"Merging files .."); 
 
-            var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
+            var mergedFile = Path.Combine(rootFolder, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
             PdfTools.MergeFiles(tmpPdfFiles, mergedFile);
 
             CleanupTempFiles(tmpPdfFiles); 
@@ -83,7 +83,7 @@ internal class MarkdownConverter
             var outFile = string.Format("{0}.{1}", Path.GetFileNameWithoutExtension(file), "pdf");  
             var outFileFullName = Path.Combine(tmpFolder, outFile);  
             startInfo.FileName = @"pandoc";
-            startInfo.Arguments = $"{file} -f markdown -t pdf --pdf-engine=wkhtmltopdf -o {outFile}";
+            startInfo.Arguments = $"{file} -f markdown -t pdf --pdf-engine=wkhtmltopdf --resource-path {Path.GetDirectoryName(file)} --extract-media {tmpFolder} -o {outFile}";
             startInfo.WorkingDirectory = tmpFolder;
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
@@ -96,7 +96,7 @@ internal class MarkdownConverter
         }        
 
         Console.WriteLine($"Merging files .."); 
-        var mergedFile = Path.Combine(parentFilePath, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
+        var mergedFile = Path.Combine(rootFolder, string.Format("merged.{0}.pdf", System.Guid.NewGuid().ToString()));
         PdfTools.MergeFiles(tmpFiles, mergedFile);
 
         CleanupTempFiles(tmpFiles);
@@ -116,11 +116,11 @@ internal class MarkdownConverter
         foreach (var tf in files)
         {
             var folderToBeDeleted = Path.GetDirectoryName(tf);
-            if(folderToBeDeleted != parentFilePath) {
+            if(folderToBeDeleted != rootFolder) {
                 var dirInfo = new DirectoryInfo(folderToBeDeleted);
                 if(dirInfo.Exists)
                 {
-                    dirInfo.Delete();
+                    dirInfo.Delete(true);
                 }
             }
         }                   
@@ -159,7 +159,7 @@ internal class MarkdownConverter
             {
                 links.Add(fi.FullName);
             }
-            await new MarkdownConverter(parentFilePath).GetLinks(fi.FullName);            
+            await new MarkdownConverter(rootFolder).GetLinks(fi.FullName);            
         } 
         if(HasProperty(element, "Cells"))
         {
@@ -190,9 +190,13 @@ internal class MarkdownConverter
         {
             return new FileInfo("");
         }
-        var absFilePath = System.IO.Path.Combine(parentFilePath, stringPath);
+        var absFilePath = System.IO.Path.Combine(rootFolder, stringPath);
         var fi = new FileInfo(absFilePath);
         Debug.WriteLine($"Checking file > {fi.FullName}");
+
+        if(fi.Extension != ".md")
+            return new FileInfo("");
+
         return fi;
     }    
 

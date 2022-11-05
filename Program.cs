@@ -13,16 +13,25 @@ class Program
             // 7. Merge all pdf files into one file
             if(args.Length > 0)
             {
-                string rootFolder = args[0];
-
-                if(args.Length > 1)
+                if(args.Length > 0)
                 {
-                    string fileToProcess = args[1];
-                    new Converter().ConvertFile(Path.Combine(rootFolder, fileToProcess)).Wait();
-                    return;
-                }
+                    string inputPath = args[0];
 
-                new Converter().ConvertFolder(rootFolder).Wait();
+                    FileAttributes attr = File.GetAttributes(inputPath);
+                    if (attr.HasFlag(FileAttributes.Directory))
+                    {
+                        new Converter().ConvertFolder(inputPath).Wait();
+                    }
+                    else
+                    {
+                        new Converter().ConvertFile(inputPath).Wait();
+                    }
+                    return;    
+                }
+                else
+                {
+                    Console.Write("No folder or file specified. Exiting ..");
+                }
             }
         }
     }
